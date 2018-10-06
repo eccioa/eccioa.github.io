@@ -23,7 +23,6 @@ section.about {
 }
 
 header {
-    height: 100vh;
     padding-top: 0;
     padding-bottom: 0;
     background-image: url("../img/bg.png");

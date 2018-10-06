@@ -81,6 +81,7 @@ section h2 {
   font-family: 'Catamaran', 'Helvetica', 'Arial', 'sans-serif';
   font-weight: 200;
   letter-spacing: 1px;
+  margin-left: 10px;
 }
 
 #mainNav .navbar-brand:hover, #mainNav .navbar-brand:focus {
@@ -212,6 +213,16 @@ header.masthead .device-container .screen img {
   }
   header.masthead .device-container {
     max-width: 325px;
+  }
+}
+
+@media (max-width: 992px){
+  header.masthead {
+    padding-top: 120px;
+    padding-bottom: 30px;
+    color: white;
+    background-image: url("../img/bg.png");
+    background-size: cover;
   }
 }
 
