@@ -170,11 +170,12 @@ section h2 {
 header.masthead {
   position: relative;
   width: 100%;
-  padding-top: 150px;
+  padding-top: 300px;
   padding-bottom: 100px;
   color: white;
   background-image: url("../img/bg.png");
   background-size: cover;
+  background-position: center;
 }
 
 header.masthead .header-content {
@@ -200,9 +201,9 @@ header.masthead .device-container .screen img {
 @media (min-width: 992px) {
   header.masthead {
     min-height: 100vh;
-    min-height: 775px;
-    padding-top: 0;
-    padding-bottom: 0;
+    /* min-height: 775px; */
+    /* padding-top: 300;
+    padding-bottom: 100; */
   }
   header.masthead .header-content {
     margin-bottom: 0;
@@ -467,4 +468,14 @@ footer ul li a:hover, footer ul li a:focus, footer ul li a:active, footer ul li 
 
 .nav-item {
   text-align: right;
+  padding-right: 7px;
+}
+
+.nav-link {
+  display: inline;
+}
+
+.card {
+  border: 0;
+  box-shadow:0 5px 10px 0 rgba(0,0,0,.15);
 }
