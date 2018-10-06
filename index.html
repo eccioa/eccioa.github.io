@@ -224,18 +224,13 @@
       <div class="container">
         <ul class="list-inline list-social">
           <li class="list-inline-item social-twitter">
-            <a href="#">
-              <i class="fab fa-twitter"></i>
+            <a href="#" onclick="copy('eccioa@gmail.com')">
+              <i class="far fa-envelope"></i>
             </a>
           </li>
           <li class="list-inline-item social-facebook">
-            <a href="#">
+            <a href="https://www.facebook.com/profile.php?id=100001037221656">
               <i class="fab fa-facebook-f"></i>
-            </a>
-          </li>
-          <li class="list-inline-item social-google-plus">
-            <a href="#">
-              <i class="fab fa-google-plus-g"></i>
             </a>
           </li>
         </ul>
@@ -247,6 +242,16 @@
         <p>&copy; Eccioa 2018. All Rights Reserved.</p>
       </div>
     </footer> -->
+
+    <script>
+    function copy(newClip) {
+      navigator.clipboard.writeText(newClip).then(function() {
+        alert("Email copied to clipboard!");/* clipboard successfully set */
+      }, function() {
+        /* clipboard write failed */
+      });
+    }
+    </script>
 
     <!-- Bootstrap core JavaScript -->
     <script src="vendor/jquery/jquery.min.js"></script>
