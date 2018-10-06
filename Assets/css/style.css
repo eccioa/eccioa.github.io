@@ -17,7 +17,7 @@ section {
 }
 
 section.about {
-    height: 100vh;
+    min-height: 100vh;
     color: #fff;
     background-color: #191925;
 }
