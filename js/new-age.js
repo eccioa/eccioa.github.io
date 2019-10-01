@@ -34,9 +34,31 @@
       $("#mainNav").removeClass("navbar-shrink");
     }
   };
+
+  var cardTransfrom = function() {
+    var cards = $("div[class='card']");
+    var pageOffset = window.pageYOffset + window.innerHeight;
+    // console.log(cards.length);
+    for(var i=0; i<cards.length; i++){
+      var height = $(cards[i]).height();
+      var bottom = $(cards[i]).offset().top + height;
+      // console.log(bottom);
+      var opacity = (pageOffset - (bottom - height * 0.4)) / (height * 0.3);
+      if(opacity > 1){
+        opacity = 1;
+      }else if(opacity < 0){
+        opacity = 0;
+      }
+      $(cards[i]).css("opacity", opacity.toString());
+      $(cards[i]).css("transform", "scale(" + opacity.toString() + ")");
+    }
+    console.log(pageOffset);
+  }
+
   // Collapse now if page is not at top
   navbarCollapse();
   // Collapse the navbar when page is scrolled
   $(window).scroll(navbarCollapse);
+  $(window).scroll(cardTransfrom);
 
 })(jQuery); // End of use strict
