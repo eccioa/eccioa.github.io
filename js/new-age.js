@@ -43,7 +43,7 @@
       var height = $(cards[i]).height();
       var bottom = $(cards[i]).offset().top + height;
       // console.log(bottom);
-      var opacity = (pageOffset - (bottom - height * 0.4)) / (height * 0.3);
+      var opacity = (pageOffset - (bottom - height * 0.5)) / (height * 0.4);
       if(opacity > 1){
         opacity = 1;
       }else if(opacity < 0){
