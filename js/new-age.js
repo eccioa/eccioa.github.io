@@ -52,7 +52,6 @@
       $(cards[i]).css("opacity", opacity.toString());
       $(cards[i]).css("transform", "scale(" + opacity.toString() + ")");
     }
-    console.log(pageOffset);
   }
 
   // Collapse now if page is not at top
