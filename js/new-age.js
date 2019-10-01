@@ -48,6 +48,8 @@
         opacity = 1;
       }else if(opacity < 0){
         opacity = 0;
+      }else{
+        opacity = opacity*opacity*opacity;
       }
       $(cards[i]).css("opacity", opacity.toString());
       $(cards[i]).css("transform", "scale(" + opacity.toString() + ")");
