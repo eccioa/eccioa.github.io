@@ -1,0 +1,64 @@
+#droppable-zone {
+    border: 7px dashed #ccc;
+    margin: 30px auto 30px auto;
+    height: 200px;
+    width: 650px;
+    position: relative;
+    overflow: hidden;
+}
+
+#droppable-zone-wrapper {
+    display: table;
+    height: 100%;
+    width: 100%;
+}
+
+#droppable-zone-text {
+    display: table-cell;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 33px;
+    overflow: hidden;
+}
+
+.droppable-file {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    height: 100%;
+    width: 100%;
+    cursor: pointer;
+}
+
+textarea {
+    font-size: 12pt;
+    max-width: 95%;
+    margin: auto auto 30px auto;
+    height: 80px;
+    width: 650px;
+    border: 3px double #ccc;
+    -webkit-border-radius: 10px;
+    -moz-border-radius: 10px;
+    border-radius: 10px;
+    
+    text-rendering: auto;
+    color: initial;
+    letter-spacing: normal;
+    word-spacing: normal;
+    text-transform: none;
+    text-indent: 0px;
+    text-shadow: none;
+    display: inline-block;
+    text-align: start;
+    -webkit-appearance: textarea;
+    background-color: white;
+    -webkit-rtl-ordering: logical;
+    flex-direction: column;
+    resize: none;
+    cursor: text;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+    font: 400 13.3333px Arial;
+    padding: 2px;
+}
