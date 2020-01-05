@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>GPA2019_Final</title>
+
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            border: 0px;
+            overflow: hidden;
+        }
+
+        .navbar {
+            z-index: 999;
+        }
+
+        #blocker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        #instructions {
+            width: 100%;
+            height: 100%;
+            display: -webkit-box;
+            display: -moz-box;
+            display: box;
+            -webkit-box-orient: horizontal;
+            -moz-box-orient: horizontal;
+            box-orient: horizontal;
+            -webkit-box-pack: center;
+            -moz-box-pack: center;
+            box-pack: center;
+            -webkit-box-align: center;
+            -moz-box-align: center;
+            box-align: center;
+            color: #ffffff;
+            text-align: center;
+            font-family: Arial;
+            font-size: 14px;
+            line-height: 24px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <script id="depth-vs" type="x-vertex-shader">
+        #version 300 es
+
+        uniform mat4 mvp;                         
+                                                  
+        layout (location = 0) in vec4 position;   
+                                                  
+        void main(void)                           
+        {                                         
+            gl_Position = mvp * position;         
+        }                                         
+    </script>
+    <script id="depth-fs" type="x-fragment-shader">
+        #version 300 es
+        precision highp float;
+        
+        out vec4 fragColor;
+        
+        float LinearizeDepth(float z)
+        {
+            float n = 0.1; // camera z near
+            float f = 3200.0; // camera z far
+            return (2.0 * n) / (f + n - z * (f - n));	
+        }
+                                                  
+        void main(void)                           
+        {                                         
+            fragColor = vec4(vec3(LinearizeDepth(gl_FragCoord.z)), 1.0);         
+            //fragColor = vec4(vec3(gl_FragCoord.z), 1.0);
+        }                                         
+    </script>
+    <script type='x-shader/x-vertex' id='vertex'>
+        #version 300 es
+
+        layout(location = 0) in vec3 iPosition;
+        layout(location = 1) in vec3 iNormal;
+        layout(location = 2) in vec2 iTexcoord;
+        layout(location = 3) in vec3 iTangent;
+        layout(location = 4) in float iVertexColor;
+
+        out vec2 vTexcoord;
+        out vec3 vNormal;
+        out mat3 vTBN;
+        out vec3 vPosW;
+        out vec3 vColor;
+        out float vFogDepth;
+        out float oPosition_C;
+        out vec4 oPosition_L[3];
+
+        out vec3 vPossss;
+        
+        uniform int uUseAO;
+        uniform mat4 uMVP;
+        uniform mat4 uM;
+        uniform mat4 uL[3];
+        
+        void main() {
+            vTexcoord = iTexcoord;
+            vPosW = vec3(uM * vec4(iPosition, 1.0f));
+            vNormal = mat3(transpose(inverse(uM))) * iNormal;
+
+            // tangent to world space
+            vec3 tangent = normalize(vec3(uM * vec4(iTangent, 0.0f)));
+            vec3 normal = normalize(vec3(uM * vec4(iNormal, 0.0f)));
+            vec3 bitangent = cross(normal, tangent);
+            vTBN = mat3(bitangent, tangent, normal);
+
+            float iVColor = iVertexColor;
+            if(uUseAO == 0)iVColor = 1.0;
+
+            // light space
+            for (int i = 0; i < 3; i++) {
+                oPosition_L[i] = uL[i] * uM * vec4(iPosition, 1.f);
+            }
+
+            gl_Position = uMVP * vec4(iPosition, 1.0f);
+            oPosition_C = gl_Position.z;
+
+            vFogDepth = gl_Position.z / 3200.0;
+            if(vPosW.y + 16.0 < 0.0){
+                float deep = (vPosW.y + 16.0) / -32.0 + 1.0;
+                vColor = vec3(iVColor / deep);
+            }else{
+                vColor = vec3(iVColor);
+            }
+
+
+            vPossss=iPosition;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fragment">
+        #version 300 es
+        precision highp float;
+        precision highp sampler2DShadow;
+
+        layout(location=0) out vec4 fragColor;
+        layout(location=1) out vec4 fragDepth; 
+
+        in vec2 vTexcoord;
+        in vec3 vNormal;
+        in mat3 vTBN;
+        in vec3 vPosW;
+        in vec3 vColor;
+        in float vFogDepth;
+        in float oPosition_C;
+        in vec4 oPosition_L[3];
+
+        uniform sampler2D uCO;
+        uniform sampler2D uNM;
+        uniform vec3 uEye;
+        uniform int uUse;
+
+        uniform sampler2DShadow uDepthBuffer[3];
+
+        uniform mat4 uShadowMVP;
+        uniform mat4 uL[3];
+        uniform float bias;
+        uniform int uUseShadow;
+        uniform int shadowColor;
+
+        uniform vec3 uLight;
+        uniform vec3 light_color;
+
+        uniform float uCsmRange[3];
+
+        uniform int usePreCalSunColor;
+
+
+
+
+        #define PI 3.141592
+        #define iSteps 16
+        #define jSteps 8
+
+        #define earthRadius 6371000.0
+        
+        vec2 rsi(vec3 r0, vec3 rd, float sr) {
+            // ray-sphere intersection that assumes
+            // the sphere is centered at the origin.
+            // No intersection when result.x > result.y
+            float a = dot(rd, rd);
+            float b = 2.0 * dot(rd, r0);
+            float c = dot(r0, r0) - (sr * sr);
+            float d = (b*b) - 4.0*a*c;
+            if (d < 0.0) return vec2(1e5,-1e5);
+            return vec2(
+                (-b - sqrt(d))/(2.0*a),
+                (-b + sqrt(d))/(2.0*a)
+            );
+        }
+
+        vec3 atmosphere(vec3 r, vec3 r0, vec3 pSun, float iSun, float rPlanet, float rAtmos, vec3 kRlh, float kMie, float shRlh, float shMie, float g) {
+            // Normalize the sun and view directions.
+            pSun = normalize(pSun);
+            r = normalize(r);
+
+            // Calculate the step size of the primary ray.
+            vec2 p = rsi(r0, r, rAtmos);
+            if (p.x > p.y) return vec3(0,0,0);
+            p.y = min(p.y, rsi(r0, r, rPlanet).x);
+            float iStepSize = (p.y - p.x) / float(iSteps);
+
+            // Initialize the primary ray time.
+            float iTime = 0.0;
+
+            // Initialize accumulators for Rayleigh and Mie scattering.
+            vec3 totalRlh = vec3(0,0,0);
+            vec3 totalMie = vec3(0,0,0);
+
+            // Initialize optical depth accumulators for the primary ray.
+            float iOdRlh = 0.0;
+            float iOdMie = 0.0;
+
+            // Calculate the Rayleigh and Mie phases.
+            float mu = dot(r, pSun);
+            float mumu = mu * mu;
+            float gg = g * g;
+            float pRlh = 3.0 / (16.0 * PI) * (1.0 + mumu);
+            float pMie = 3.0 / (8.0 * PI) * ((1.0 - gg) * (mumu + 1.0)) / (pow(1.0 + gg - 2.0 * mu * g, 1.5) * (2.0 + gg));
+
+            // Sample the primary ray.
+            for (int i = 0; i < iSteps; i++) {
+
+                // Calculate the primary ray sample position.
+                vec3 iPos = r0 + r * (iTime + iStepSize * 0.5);
+
+                // Calculate the height of the sample.
+                float iHeight = length(iPos) - rPlanet;
+
+                // Calculate the optical depth of the Rayleigh and Mie scattering for this step.
+                float odStepRlh = exp(-iHeight / shRlh) * iStepSize;
+                float odStepMie = exp(-iHeight / shMie) * iStepSize;
+
+                // Accumulate optical depth.
+                iOdRlh += odStepRlh;
+                iOdMie += odStepMie;
+
+                // Calculate the step size of the secondary ray.
+                float jStepSize = rsi(iPos, pSun, rAtmos).y / float(jSteps);
+
+                // Initialize the secondary ray time.
+                float jTime = 0.0;
+
+                // Initialize optical depth accumulators for the secondary ray.
+                float jOdRlh = 0.0;
+                float jOdMie = 0.0;
+
+                // Sample the secondary ray.
+                for (int j = 0; j < jSteps; j++) {
+
+                    // Calculate the secondary ray sample position.
+                    vec3 jPos = iPos + pSun * (jTime + jStepSize * 0.5);
+
+                    // Calculate the height of the sample.
+                    float jHeight = length(jPos) - rPlanet;
+
+                    // Accumulate the optical depth.
+                    jOdRlh += exp(-jHeight / shRlh) * jStepSize;
+                    jOdMie += exp(-jHeight / shMie) * jStepSize;
+
+                    // Increment the secondary ray time.
+                    jTime += jStepSize;
+                }
+
+                // Calculate attenuation.
+                vec3 attn = exp(-(kMie * (iOdMie + jOdMie) + kRlh * (iOdRlh + jOdRlh)));
+
+                // Accumulate scattering.
+                totalRlh += odStepRlh * attn;
+                totalMie += odStepMie * attn;
+
+                // Increment the primary ray time.
+                iTime += iStepSize;
+
+            }
+
+            // Calculate and return the final color.
+            return iSun * (pRlh * kRlh * totalRlh + pMie * kMie * totalMie);
+        }
+
+        
+
+        void main() {
+            vec4 albedo = texture(uCO, vTexcoord);
+            vec4 waterFogColor = vec4(0.0, 0.0, 0.7, 1.0);
+
+            float fogAmount = smoothstep(0.005, 0.15, vFogDepth);
+
+            vec3 Nn;
+            if (uUse == 0) {
+                Nn = normalize(vNormal);
+            }
+            else {
+                vec4 _nNm = texture(uNM, vTexcoord);
+                _nNm.x = 1.0 - _nNm.x;
+                _nNm.y = 1.0 - _nNm.y;
+                _nNm.z = _nNm.z;
+                Nn = normalize(vTBN * (_nNm.xyz * 2.0f - 1.0f));
+            }
+            vec3 Vn = normalize(uEye - vPosW);
+            vec3 Ln = normalize(uLight);
+            vec3 Hn = normalize(Ln + Vn);
+
+
+
+            vec3 sunColor;
+
+            if(usePreCalSunColor == 1){
+                sunColor = light_color;
+            }else{
+                sunColor = atmosphere(
+                    Ln,           // normalized ray direction
+                    vec3(0,6372e3,0),               // ray origin
+                    Ln,                         // position of the sun
+                    22.0,                           // intensity of the sun
+                    earthRadius,                    // radius of the planet in meters
+                    6471e3,                         // radius of the atmosphere in meters
+                    vec3(5.5e-6, 13.0e-6, 22.4e-6), // Rayleigh scattering coefficient
+                    21e-6,                          // Mie scattering coefficient
+                    8e3,                            // Rayleigh scale height
+                    1.2e3,                          // Mie scale height
+                    0.758                           // Mie preferred scattering direction
+                );
+
+                // sun
+                vec3 scolor = vec3(0.7909974455833435, 1.0, 0.8551793098449707);
+                float mixAmount2 = smoothstep(0.0, 0.1, Ln.y);
+                //sunColor = mix(sunColor, scolor, mixAmount2);
+            }
+            
+            
+
+
+
+            //albedo = vec4(Nn, 1.0);
+
+            //vec4 shadowCoord = uShadowMVP * vec4(vPosW, 1.0) + bias;
+            //vec3 projectedTexcoord = shadowCoord.xyz / shadowCoord.w;
+            //float currentDepth = projectedTexcoord.z;
+
+            float shadowFactor = 0.f;
+
+            if (vFogDepth <= uCsmRange[0]) {
+                vec4 shadowCoord = uL[0] * vec4(vPosW, 1.0) + bias;
+                shadowFactor = textureProj(uDepthBuffer[0], shadowCoord);
+            }
+            else if (vFogDepth <= uCsmRange[1]) {
+                vec4 shadowCoord = uL[1] * vec4(vPosW, 1.0) + 1.0;
+                shadowFactor = textureProj(uDepthBuffer[1], shadowCoord);
+            }
+            else if (vFogDepth <= uCsmRange[2]) {
+                vec4 shadowCoord = uL[2] * vec4(vPosW, 1.0) + 1.0;
+                shadowFactor = textureProj(uDepthBuffer[2], shadowCoord);
+            }else{
+                shadowFactor = 1.0f;
+            }
+
+            if(uUseShadow == 1){
+                vec3 ambient = vec3(0.4f);
+                vec3 diffuse = min(max(dot(Nn, Ln), 0.f) * sunColor, vec3(0.6));
+                vec3 specular = pow(max(dot(Nn, Hn), 0.f), 50.0f) * sunColor;
+                fragColor = vec4(((ambient + diffuse * shadowFactor) * vColor) * albedo.rgb, albedo.a);
+                if(uEye.y < -16.0){
+                    fragColor = mix(fragColor, waterFogColor, fogAmount);
+                }
+                if(shadowColor == 1){
+                    if (vFogDepth <= uCsmRange[0]) {
+                        fragColor = mix(fragColor, vec4(1, 0, 0, 1), 0.3);
+                    }
+                    else if (vFogDepth <= uCsmRange[1]) {
+                        fragColor = mix(fragColor, vec4(0, 1, 0, 1), 0.3);
+                    }
+                    else if (vFogDepth <= uCsmRange[2]) {
+                        fragColor = mix(fragColor, vec4(0, 0, 1, 1), 0.3);
+                    }
+                }
+            }else{
+                vec3 ambient = vec3(0.4f);
+                vec3 diffuse = min(max(dot(Nn, Ln), 0.f) * vec3(1.0), vec3(0.6));
+                vec3 specular = pow(max(dot(Nn, Hn), 0.f), 50.0f) * sunColor;
+                fragColor = vec4((ambient + diffuse) * albedo.rgb, albedo.a);;
+            }
+            fragDepth = vec4(vec3(vFogDepth), 1.0);
+        }
+    </script>
+    <script type='x-shader/x-vertex' id='water_vs'>
+        #version 300 es
+
+        layout(location = 0) in vec3 iPosition;
+        layout(location = 1) in vec3 iNormal;
+        layout(location = 2) in vec2 iTexcoord;
+
+        out vec2 vTexcoord;
+        out vec3 vNormal;
+        out vec3 vPosW;
+        out float vFogDepth;
+        
+        uniform mat4 uMVP;
+        uniform mat4 uM;
+        
+        void main() {
+            vTexcoord = iTexcoord;
+            vPosW = vec3(uM * vec4(iPosition, 1.0f));
+            vNormal = mat3(transpose(inverse(uM))) * iNormal;
+            
+            gl_Position = uMVP * vec4(iPosition, 1.0f);
+            vFogDepth = gl_Position.z / 3200.0;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="water_fs">
+        #version 300 es
+        precision highp float;
+
+        layout(location = 0) out vec4 fragColor;
+        layout(location = 1) out vec4 fragDepth;
+
+        in vec2 vTexcoord;
+        in vec3 vNormal;
+        in mat3 vTBN;
+        in vec3 vPosW;
+        in vec3 vColor;
+        in float vFogDepth;
+
+        uniform sampler2D uCO;
+        uniform sampler2D uNM;
+        uniform vec3 uEye;
+
+        uniform mat4 uShadowMVP;
+        uniform float bias;
+        uniform float offset;
+
+        uniform vec3 uLight;
+        uniform vec3 light_color;
+
+        void main() {
+            vec2 coord = vec2(vTexcoord.x, vTexcoord.y + (1.0 / 32.0 * offset));
+            vec4 albedo = texture(uCO, coord);
+            vec4 waterFogColor = vec4(0.0, 0.0, 0.7, 1.0);
+            float fogAmount = smoothstep(0.005, 0.3, vFogDepth);
+
+            vec3 Nn = normalize(vNormal);
+            vec3 Vn = normalize(uEye - vPosW);
+            vec3 Ln = normalize(uLight);
+            vec3 Hn = normalize(Ln + Vn);
+
+            vec3 ambient = vec3(0.4f);
+            vec3 diffuse = min(max(dot(Nn, Ln), 0.f) * vec3(1.0), vec3(0.6));
+            vec3 specular = pow(max(dot(Nn, Hn), 0.f), 50.0f) * light_color;
+            fragColor = vec4((ambient + diffuse) * albedo.rgb, albedo.a);
+            if(uEye.y < -16.0){
+                fragColor = mix(fragColor, waterFogColor, fogAmount);
+            }
+            fragDepth = vec4(vec3(vFogDepth), 1.0);
+        }
+    </script>
+
+    <!-- <script type='x-shader/x-vertex' id='skybox_vs'>
+        #version 300 es
+        precision highp float;
+
+        layout (location = 0) in vec3 aPos;
+
+        out vec3 TexCoords;
+
+        uniform mat4 projection;
+        uniform mat4 view;
+
+        void main()
+        {
+            TexCoords = aPos;
+            vec4 pos = projection * mat4(mat3(view)) * vec4(aPos, 1.0);
+            gl_Position = pos.xyww;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id='skybox_fs'>
+        #version 300 es
+        precision highp float;
+
+        out vec4 FragColor;
+
+        in vec3 TexCoords;
+
+        uniform samplerCube skybox;
+
+        void main()
+        {    
+            FragColor = texture(skybox, TexCoords);
+        }
+    </script> -->
+
+    <script type='x-shader/x-vertex' id='atm_vs'>
+        #version 300 es
+        precision highp float;
+
+        layout (location = 0) in vec3 aPosition;
+
+        out vec3 vPosition;
+        out vec3 skPosition;
+
+        uniform mat4 projection;
+        uniform mat4 view;
+
+        uniform mat4 rot;
+
+        void main() {
+            vec4 pos = projection * mat4(mat3(view)) * vec4(aPosition, 1.0);
+            gl_Position = pos.xyww;
+            vPosition = aPosition;
+            skPosition = vec3(rot*vec4(aPosition, 1.0));
+        }
+    </script>
+    <script type="x-shader/x-fragment" id='atm_fs'>
+        #version 300 es
+        precision highp float;
+
+        layout(location = 0) out vec4 FragColor;
+        layout(location = 1) out vec4 FragDepth;
+
+        in vec3 vPosition;
+        in vec3 skPosition;
+
+        uniform vec3 uSunPos;
+        uniform samplerCube skybox;
+
+
+        #define PI 3.141592
+        #define iSteps 16
+        #define jSteps 8
+
+        #define earthRadius 6371000.0
+
+
+        //======================= cloud parameter =======================
+        #define cloudSpeed 0.02
+        uniform float cloudHeight;
+        uniform float cloudThickness;
+        
+
+        #define fogDensity 0.00003
+
+        #define volumetricCloudSteps 16 		//Higher is a better result with rendering of clouds.
+        #define volumetricLightSteps 8			//Higher is a better result with rendering of volumetric light.
+
+        #define cloudShadowingSteps 12			//Higher is a better result with shading on clouds.
+        #define volumetricLightShadowSteps 4	//Higher is a better result with shading on volumetric light from clouds
+
+        const float rPi = 1.0 / PI;
+        const float hPi = PI * 0.5;
+        const float rLOG2 = 1.0 / log(2.0);
+
+        float sunBrightness = 0.5;
+
+        #define cloudMinHeight cloudHeight
+        #define cloudMaxHeight (cloudThickness + cloudMinHeight)
+
+        uniform sampler2D tex_noise;
+        uniform float iTime;
+
+        uniform int isCloud;
+        uniform int isLightScattering;
+
+        uniform float cloudDensity;
+        uniform float gammaCor;
+        //======================= cloud parameter =======================
+
+
+
+        //======================= sky functions =======================
+        vec2 rsi(vec3 r0, vec3 rd, float sr) {
+            // ray-sphere intersection that assumes
+            // the sphere is centered at the origin.
+            // No intersection when result.x > result.y
+            float a = dot(rd, rd);
+            float b = 2.0 * dot(rd, r0);
+            float c = dot(r0, r0) - (sr * sr);
+            float d = (b*b) - 4.0*a*c;
+            if (d < 0.0) return vec2(1e5,-1e5);
+            return vec2(
+                (-b - sqrt(d))/(2.0*a),
+                (-b + sqrt(d))/(2.0*a)
+            );
+        }
+
+        vec3 atmosphere(vec3 r, vec3 r0, vec3 pSun, float iSun, float rPlanet, float rAtmos, vec3 kRlh, float kMie, float shRlh, float shMie, float g) {
+            // Normalize the sun and view directions.
+            pSun = normalize(pSun);
+            r = normalize(r);
+
+            // Calculate the step size of the primary ray.
+            vec2 p = rsi(r0, r, rAtmos);
+            if (p.x > p.y) return vec3(0,0,0);
+            p.y = min(p.y, rsi(r0, r, rPlanet).x);
+            float iStepSize = (p.y - p.x) / float(iSteps);
+
+            // Initialize the primary ray time.
+            float iTime = 0.0;
+
+            // Initialize accumulators for Rayleigh and Mie scattering.
+            vec3 totalRlh = vec3(0,0,0);
+            vec3 totalMie = vec3(0,0,0);
+
+            // Initialize optical depth accumulators for the primary ray.
+            float iOdRlh = 0.0;
+            float iOdMie = 0.0;
+
+            // Calculate the Rayleigh and Mie phases.
+            float mu = dot(r, pSun);
+            float mumu = mu * mu;
+            float gg = g * g;
+            float pRlh = 3.0 / (16.0 * PI) * (1.0 + mumu);
+            float pMie = 3.0 / (8.0 * PI) * ((1.0 - gg) * (mumu + 1.0)) / (pow(1.0 + gg - 2.0 * mu * g, 1.5) * (2.0 + gg));
+
+            // Sample the primary ray.
+            for (int i = 0; i < iSteps; i++) {
+
+                // Calculate the primary ray sample position.
+                vec3 iPos = r0 + r * (iTime + iStepSize * 0.5);
+
+                // Calculate the height of the sample.
+                float iHeight = length(iPos) - rPlanet;
+
+                // Calculate the optical depth of the Rayleigh and Mie scattering for this step.
+                float odStepRlh = exp(-iHeight / shRlh) * iStepSize;
+                float odStepMie = exp(-iHeight / shMie) * iStepSize;
+
+                // Accumulate optical depth.
+                iOdRlh += odStepRlh;
+                iOdMie += odStepMie;
+
+                // Calculate the step size of the secondary ray.
+                float jStepSize = rsi(iPos, pSun, rAtmos).y / float(jSteps);
+
+                // Initialize the secondary ray time.
+                float jTime = 0.0;
+
+                // Initialize optical depth accumulators for the secondary ray.
+                float jOdRlh = 0.0;
+                float jOdMie = 0.0;
+
+                // Sample the secondary ray.
+                for (int j = 0; j < jSteps; j++) {
+
+                    // Calculate the secondary ray sample position.
+                    vec3 jPos = iPos + pSun * (jTime + jStepSize * 0.5);
+
+                    // Calculate the height of the sample.
+                    float jHeight = length(jPos) - rPlanet;
+
+                    // Accumulate the optical depth.
+                    jOdRlh += exp(-jHeight / shRlh) * jStepSize;
+                    jOdMie += exp(-jHeight / shMie) * jStepSize;
+
+                    // Increment the secondary ray time.
+                    jTime += jStepSize;
+                }
+
+                // Calculate attenuation.
+                vec3 attn = exp(-(kMie * (iOdMie + jOdMie) + kRlh * (iOdRlh + jOdRlh)));
+
+                // Accumulate scattering.
+                totalRlh += odStepRlh * attn;
+                totalMie += odStepMie * attn;
+
+                // Increment the primary ray time.
+                iTime += iStepSize;
+
+            }
+
+            // Calculate and return the final color.
+            return iSun * (pRlh * kRlh * totalRlh + pMie * kMie * totalMie);
+        }
+        //======================= sky functions =======================
+
+
+
+        //======================= cloud functions =======================
+
+        float bayer2(vec2 a){
+            a = floor(a);
+            return fract( dot(a, vec2(.5, a.y * .75)) );
+        }
+        
+        #define bayer4(a)   (bayer2( .5*(a))*.25+bayer2(a))
+        #define bayer8(a)   (bayer4( .5*(a))*.25+bayer2(a))
+        #define bayer16(a)  (bayer8( .5*(a))*.25+bayer2(a))
+        #define bayer32(a)  (bayer16(.5*(a))*.25+bayer2(a))
+        #define bayer64(a)  (bayer32(.5*(a))*.25+bayer2(a))
+        #define bayer128(a) (bayer64(.5*(a))*.25+bayer2(a))
+
+        
+        float Get3DNoise(vec3 pos) 
+        {
+            float p = floor(pos.z);
+            float f = pos.z - p;
+            
+            const float invNoiseRes = 1.0 / 256.0;
+            
+            float zStretch = 17.0 * invNoiseRes;
+            
+            vec2 coord = pos.xy * invNoiseRes + (p * zStretch);
+            
+            vec2 noise = vec2(texture(tex_noise, coord).x, texture(tex_noise, coord + zStretch).x);
+            
+            return mix(noise.x, noise.y, f);
+        }
+
+        float getClouds(vec3 p)
+        {
+            p = vec3(p.x, length(p + vec3(0.0, earthRadius, 0.0)) - earthRadius, p.z);
+            
+            if (p.y < cloudMinHeight || p.y > cloudMaxHeight)
+                return 0.0;
+            
+            float time = iTime * cloudSpeed;
+            vec3 movement = vec3(time, 0.0, time);
+            
+            vec3 cloudCoord = (p * 0.001) + movement;
+
+            
+            float noise = Get3DNoise(cloudCoord) * 0.5;
+                noise += Get3DNoise(cloudCoord * 2.0 + movement) * 0.25;
+                noise += Get3DNoise(cloudCoord * 7.0 - movement) * 0.125;
+                noise += Get3DNoise((cloudCoord + movement) * 16.0) * 0.0625;
+
+            
+            const float top = 0.004;
+            const float bottom = 0.01;
+            
+            float horizonHeight = p.y - cloudMinHeight;
+            float treshHold = (1.0 - exp2(-bottom * horizonHeight)) * exp2(-top * horizonHeight);
+            
+            float clouds = smoothstep(0.55, 0.6, noise);
+                clouds *= treshHold;
+            
+            return clouds * cloudDensity;
+        }
+
+        float getSunVisibility(vec3 p)
+        {
+            const int steps = cloudShadowingSteps;
+            float rSteps = cloudThickness / float(steps);
+            
+            vec3 increment = normalize(uSunPos) * rSteps;
+            vec3 position = increment * 0.5 + p;
+            
+            float transmittance = 0.0;
+            
+            for (int i = 0; i < steps; i++, position += increment)
+            {
+                transmittance += getClouds(position);
+            }
+            
+            return exp2(-transmittance * rSteps);
+        }
+
+        float calculateScatterIntergral(float opticalDepth, float coeff){
+            float a = -coeff * rLOG2;
+            float b = -1.0 / coeff;
+            float c =  1.0 / coeff;
+        
+            return exp2(a * opticalDepth) * b + c;
+        }
+        
+        vec3 calculateScatterIntergral(float opticalDepth, vec3 coeff){
+            vec3 a = -coeff * rLOG2;
+            vec3 b = -1.0 / coeff;
+            vec3 c =  1.0 / coeff;
+        
+            return exp2(a * opticalDepth) * b + c;
+        }
+
+        float powder(float od)
+        {
+            return 1.0 - exp2(-od * 2.0);
+        }
+
+        vec3 getVolumetricCloudsScattering(float opticalDepth, float phase, vec3 p, vec3 sunColor, vec3 skyLight)
+        {
+            float intergal = calculateScatterIntergral(opticalDepth, 1.11);
+            
+            float beersPowder = powder(opticalDepth * log(2.0));
+            
+            vec3 sunlighting = (sunColor * getSunVisibility(p) * beersPowder) * phase * hPi * (sunBrightness*3.0);
+            vec3 skylighting = skyLight * 0.25 * rPi  *(2.0); // 2.0美感自調
+            
+            return (sunlighting + skylighting) * intergal * PI;
+        }
+
+        float hgPhase(float x, float g)
+        {
+            float g2 = g*g;
+            return 0.25 * ((1.0 - g2) * pow(1.0 + g2 - 2.0*g*x, -1.5));
+        }
+
+        float phase2Lobes(float x)
+        {
+            const float m = 0.6;
+            const float gm = 0.8;
+            
+            float lobe1 = hgPhase(x, 0.8 * gm);
+            float lobe2 = hgPhase(x, -0.5 * gm);
+            
+            return mix(lobe2, lobe1, m);
+        }
+
+
+        vec3 calculateVolumetricClouds(vec3 color, vec3 sunColor, float dither, vec3 skyLight)
+        {
+            if (normalize(vPosition).y < 0.0)
+                return color;
+
+            const int steps = volumetricCloudSteps;
+            const float iSteps2 = 1.0 / float(steps);
+              
+            
+            float bottomSphere = rsi(vec3(0.0, 1.0, 0.0) * earthRadius, normalize(vPosition), earthRadius + cloudMinHeight).y;
+            float topSphere = rsi(vec3(0.0, 1.0, 0.0) * earthRadius, normalize(vPosition), earthRadius + cloudMaxHeight).y;
+            
+            vec3 startPosition = normalize(vPosition) * bottomSphere;
+            vec3 endPosition = normalize(vPosition) * topSphere;
+            
+            vec3 increment = (endPosition - startPosition) * iSteps2;
+            vec3 cloudPosition = increment * dither  + startPosition;
+            
+            float stepLength = length(increment);
+            
+            vec3 scattering = vec3(0.0);
+            float transmittance = 1.0;
+            
+            float lDotW = dot(normalize(uSunPos), normalize(vPosition));
+            float phase = phase2Lobes(lDotW);
+                        
+            for (int i = 0; i < steps; i++, cloudPosition += increment)
+            {
+                float opticalDepth = getClouds(cloudPosition) * stepLength;
+                
+                if (opticalDepth <= 0.0)
+                    continue;
+                
+                scattering += getVolumetricCloudsScattering(opticalDepth, phase, cloudPosition, sunColor, skyLight) * transmittance;
+                transmittance *= exp2(-opticalDepth);
+            }
+            
+            return mix(color * transmittance + scattering, color, clamp(length(startPosition) * 0.00001, 0.0, 1.0));
+        }
+
+
+        float getCloudShadow(vec3 p)
+        {
+            const int steps = volumetricLightShadowSteps;
+            float rSteps = cloudThickness / float(steps) / abs(normalize(uSunPos).y);
+            
+            vec3 increment = normalize(uSunPos) * rSteps;
+            vec3 position = normalize(uSunPos) * (cloudMinHeight - p.y) / normalize(uSunPos).y + p;
+            
+            float transmittance = 0.0;
+            
+            for (int i = 0; i < steps; i++, position += increment)
+            {
+                transmittance += getClouds(position);
+            }
+            
+            return exp2(-transmittance * rSteps);
+        }
+
+        vec3 getVolumetricLightScattering(float opticalDepth, float phase, vec3 p, vec3 sunColor, vec3 skyLight)
+        {
+            float intergal = calculateScatterIntergral(opticalDepth, 1.11);
+            
+            vec3 sunlighting = sunColor * phase * hPi * sunBrightness;
+            if(isCloud == 1)
+                sunlighting *= getCloudShadow(p);
+            vec3 skylighting = skyLight * 0.25 * rPi;
+            
+            return (sunlighting + skylighting) * intergal * PI;
+        }
+
+        float getHeightFogOD(float height)
+        {
+            const float falloff = 0.001;
+            
+            return exp2(-height * falloff) * fogDensity;
+        }
+
+        vec3 calculateVolumetricLight(vec3 color, vec3 sunColor, float dither, vec3 skyLight)
+        {
+            const int steps = volumetricLightSteps;
+            const float iSteps2 = 1.0 / float(steps);
+            
+            vec3 increment = normalize(vPosition) * cloudMinHeight / clamp(normalize(vPosition).y, 0.1, 1.0) * iSteps2;
+            vec3 rayPosition = increment * dither;
+            
+            float stepLength = length(increment);
+            
+            vec3 scattering = vec3(0.0);
+            vec3 transmittance = vec3(1.0);
+            
+            float lDotW = dot(normalize(uSunPos), normalize(vPosition));
+            float phase = hgPhase(lDotW, 0.8);
+                        
+            for (int i = 0; i < steps; i++, rayPosition += increment)
+            {
+                float opticalDepth = getHeightFogOD(rayPosition.y) * stepLength;
+                
+                if (opticalDepth <= 0.0)
+                    continue;
+                
+                scattering += getVolumetricLightScattering(opticalDepth, phase, rayPosition, sunColor, skyLight) * transmittance;
+                transmittance *= exp2(-opticalDepth);
+            }
+            
+            return color * transmittance + scattering;
+        }
+
+        vec3 robobo1221Tonemap(vec3 color)
+        {
+            #define rTOperator(x) (x / sqrt(x*x+1.0))
+
+            float l = length(color);
+
+            color = mix(color, color * 0.5, l / (l+1.0));
+            color = rTOperator(color);
+
+            return color;
+        }
+
+        //======================= cloud functions =======================
+
+
+
+
+
+        void main() {
+
+            //======================= sky calculation =======================
+            vec3 sunpos = normalize(uSunPos);
+
+            vec3 color = atmosphere(
+                normalize(vPosition),           // normalized ray direction
+                vec3(0,6372e3,0),               // ray origin
+                sunpos,                         // position of the sun
+                22.0,                           // intensity of the sun
+                earthRadius,                    // radius of the planet in meters
+                6471e3,                         // radius of the atmosphere in meters
+                vec3(5.5e-6, 13.0e-6, 22.4e-6), // Rayleigh scattering coefficient
+                21e-6,                          // Mie scattering coefficient
+                8e3,                            // Rayleigh scale height
+                1.2e3,                          // Mie scale height
+                0.758                           // Mie preferred scattering direction
+            );
+
+            // Apply exposure.
+            color = 1.0 - exp(-1.0 * color);
+
+            // sun
+            float angle = acos(dot(normalize(vPosition), sunpos));
+            if(angle <= 1.0f/180.0f*PI){
+                FragColor = vec4(vec3(1.0), 1);
+            }else if(angle <= 2.0f/180.0f*PI){
+                float mixAmount = smoothstep(0.0, 0.8, angle*180.0/PI-1.0);
+                FragColor = mix(vec4(1.), vec4(color, 1.), mixAmount);
+            }else{
+                FragColor = vec4(color, 1);
+            }
+            float mixAmount2 = smoothstep(0.0, 0.1, sunpos.y);
+            vec4 sunSky  = mix(vec4(color, 1.), FragColor, mixAmount2);
+            
+
+
+            vec4 starSky = texture(skybox, skPosition);
+            vec4 nightSky = mix(sunSky, starSky, max(smoothstep(40.0 / 180.0, 120.0 / 180.0, angle / PI), (1.0 - smoothstep(-0.1, 0.001, sunpos.y))));
+            vec4 mixSky = mix(sunSky, nightSky, smoothstep(0.15, -0.1, sunpos.y));
+            FragColor = mixSky;
+
+
+            // moon
+            float angle3 = acos(dot(normalize(vPosition), -sunpos));
+            if(angle3 <= 1.0f/180.0f*PI){
+                FragColor = vec4(vec3(1.0), 1);
+            }else if(angle3 <= 2.0f/180.0f*PI){
+                float mixAmount = smoothstep(0.0, 0.8, angle3*180.0/PI-1.0);
+                FragColor = mix(vec4(1.), mixSky, mixAmount);
+            }
+
+
+            float angle2 = acos(dot(normalize(vPosition), vec3(0.0,1.0,0.0)));
+            if( angle2 >= 87.0f*PI/180.0 && angle2 <= 91.0f*PI/180.0){
+                FragColor = mix(FragColor, sunSky, smoothstep(87.0f*PI/180.0, 91.0f*PI/180.0, angle2));
+            }else if( angle2 >= 91.0f*PI/180.0){
+                FragColor = sunSky;
+            }
+            //======================= sky calculation =======================
+
+
+
+
+            //======================= cloud calculation =======================
+
+            float dither = bayer16(gl_FragCoord.xy);
+
+
+            vec3 sunColor = atmosphere(
+                sunpos,           // normalized ray direction
+                vec3(0,6372e3,0),               // ray origin
+                sunpos,                         // position of the sun
+                22.0,                           // intensity of the sun
+                earthRadius,                    // radius of the planet in meters
+                6471e3,                         // radius of the atmosphere in meters
+                vec3(5.5e-6, 13.0e-6, 22.4e-6), // Rayleigh scattering coefficient
+                21e-6,                          // Mie scattering coefficient
+                8e3,                            // Rayleigh scale height
+                1.2e3,                          // Mie scale height
+                0.758                           // Mie preferred scattering direction
+            );
+
+
+            sunBrightness = 1.0 - 0.99*smoothstep(0.0f*PI/180.0, 91.0f*PI/180.0, acos(dot(normalize(vPosition), vec3(0.0,1.0,0.0))));
+
+            //cloud
+            if(isCloud==1){
+                if(acos(dot(normalize(vPosition), vec3(0.0,1.0,0.0)))<=90.0f*PI/180.0){
+                    FragColor = vec4( calculateVolumetricClouds(FragColor.xyz, sunColor, dither, color), FragColor.w);
+                }
+            }
+
+            //light scattering
+            if(isLightScattering==1){
+                FragColor = vec4( calculateVolumetricLight(FragColor.xyz, sunColor, dither, color), FragColor.w);
+            }
+            FragColor = vec4( pow(FragColor.xyz, vec3(1.0 / gammaCor)), FragColor.w);
+            //FragColor = vec4( robobo1221Tonemap(FragColor.xyz), FragColor.w);
+
+            //======================= cloud calculation =======================
+
+            FragDepth = vec4(1.0);
+        }
+    </script>
+
+    <script id="postProcessing-vs" type="x-vertex-shader">
+        #version 300 es
+        layout(std140, column_major) uniform;
+        layout(location=0) in vec3 aPosition;
+        layout(location=1) in vec2 aTexcoord;
+
+        out vec2 texcoord;
+        
+        void main() {
+            gl_Position = vec4(aPosition, 1.0);
+            texcoord = aTexcoord;
+        }
+    </script>
+    <script id="postProcessing-fs" type="x-fragment-shader">
+        #version 300 es
+        precision highp float;
+        
+        uniform sampler2D uColorBuffer;
+        uniform sampler2D uDepthBuffer;
+        uniform int fxaaOn;
+        uniform int vignetteOn;
+        uniform vec2 resolution;
+
+        vec2 u_texelStep = vec2(1.0 / 1920.0, 1.0 / 1080.0);
+
+        //RADIUS of our vignette, where 0.5 results in a circle fitting the screen
+        const float RADIUS = 0.75;
+        
+        //softness of our vignette, between 0.0 and 1.0
+        const float SOFTNESS = 0.45;
+
+        in vec2 texcoord;
+        out vec4 fragColor;
+
+        vec4 FXAA(){
+
+            vec3 rgbM = texture(uColorBuffer, texcoord).rgb;
+            vec3 rgbNW = textureOffset(uColorBuffer, texcoord, ivec2(-1, 1)).rgb;
+            vec3 rgbNE = textureOffset(uColorBuffer, texcoord, ivec2(1, 1)).rgb;
+            vec3 rgbSW = textureOffset(uColorBuffer, texcoord, ivec2(-1, -1)).rgb;
+            vec3 rgbSE = textureOffset(uColorBuffer, texcoord, ivec2(1, -1)).rgb;
+            const vec3 toLuma = vec3(0.299, 0.587, 0.114);
+
+            float lumaNW = dot(rgbNW, toLuma);
+            float lumaNE = dot(rgbNE, toLuma);
+            float lumaSW = dot(rgbSW, toLuma);
+            float lumaSE = dot(rgbSE, toLuma);
+            float lumaM = dot(rgbM, toLuma);
+            float lumaMin = min(lumaM, min(min(lumaNW, lumaNE), min(lumaSW, lumaSE)));
+            float lumaMax = max(lumaM, max(max(lumaNW, lumaNE), max(lumaSW, lumaSE)));
+            // If contrast is lower than a maximum threshold ...
+            if (lumaMax - lumaMin < lumaMax * 0.3f)
+            {
+                return vec4(rgbM, 1.0);
+            }
+
+            float u_maxSpan = 8.0f;
+            float u_mulReduce = 1.0f / 32.0f;
+            float u_minReduce = 1.0f / 512.0f;
+
+            vec2 samplingDirection;
+            samplingDirection.x = -((lumaNW + lumaNE) - (lumaSW + lumaSE));
+            samplingDirection.y = ((lumaNW + lumaSW) - (lumaNE + lumaSE));
+            float samplingDirectionReduce = max((lumaNW + lumaNE + lumaSW + lumaSE) * 0.25 * u_mulReduce, u_minReduce);
+            float minSamplingDirectionFactor = 1.0 / (min(abs(samplingDirection.x), abs(samplingDirection.y)) + samplingDirectionReduce);
+            // samplingDirection = clamp(samplingDirection * minSamplingDirectionFactor, vec2(-u_maxSpan, -u_maxSpan), vec2(u_maxSpan, u_maxSpan)) * u_texelStep;
+            samplingDirection = min(vec2(u_maxSpan, u_maxSpan), max(vec2(-u_maxSpan, -u_maxSpan), samplingDirection * minSamplingDirectionFactor)) * u_texelStep;
+            vec3 rgbSampleNeg = texture(uColorBuffer, texcoord + samplingDirection * (1.0 / 3.0 - 0.5)).rgb;
+            vec3 rgbSamplePos = texture(uColorBuffer, texcoord + samplingDirection * (2.0 / 3.0 - 0.5)).rgb;
+
+            vec3 rgbTwoTab = (rgbSamplePos + rgbSampleNeg) * 0.5;
+
+            // Outer samples on the tab.
+            // vec3 rgbSampleNegOuter = texture(uColorBuffer, ivec2(gl_FragCoord.x * 8, gl_FragCoord.y * 8) + samplingDirection * (0.0 / 3.0 - 0.5)).rgb;
+            // vec3 rgbSamplePosOuter = texture(uColorBuffer, ivec2(gl_FragCoord.x * 8, gl_FragCoord.y * 8) + samplingDirection * (3.0 / 3.0 - 0.5)).rgb;
+            vec3 rgbSampleNegOuter = texture(uColorBuffer, texcoord + samplingDirection * -0.5).rgb;
+            vec3 rgbSamplePosOuter = texture(uColorBuffer, texcoord + samplingDirection *  0.5).rgb;
+
+
+            vec3 rgbFourTab = (rgbSamplePosOuter + rgbSampleNegOuter) * 0.25 + rgbTwoTab * 0.5;
+
+            // Calculate luma for checking against the minimum and maximum value.
+            float lumaFourTab = dot(rgbFourTab, toLuma);
+
+            // Are outer samples of the tab beyond the edge ...
+            if (lumaFourTab < lumaMin || lumaFourTab > lumaMax)
+            {
+                // ... yes, so use only two samples.
+                return vec4(rgbTwoTab, 1.0);
+            }
+            else
+            {
+                // ... no, so use four samples.
+                return vec4(rgbFourTab, 1.0);
+            }
+        }
+
+        void main() {
+            ivec2 fragCoord = ivec2(gl_FragCoord.xy);
+            vec4 color = texture(uColorBuffer, texcoord);
+            if(fxaaOn == 1){
+                color = FXAA();
+            }
+            vec4 depth = texelFetch(uDepthBuffer, fragCoord, 0);
+            
+            /*float n = 0.1;
+            float f = 3100.0;
+            float z = depth.w;
+            float grey = (2.0 * n) / (f + n - z*(f-n));
+            //color = vec4(depth.rgb, 1.0);*/
+
+            if(depth.r > 0.9){
+                int half_size = 1;
+                vec4 color_sum = vec4(0);
+                for (int i = -half_size; i <= half_size ; ++i) {
+                    for (int j = -half_size; j <= half_size ; ++j) {
+                        ivec2 coord = fragCoord + ivec2(i, j);
+                        if(coord.x < 0)coord.x = 0;
+                        if(coord.x > int(resolution.x))coord.x = int(resolution.x);
+                        color_sum += texelFetch(uColorBuffer, coord, 0);
+                    }
+                }
+                int sample_count = (half_size * 2 + 1) * (half_size * 2 + 1);
+                color = color_sum / float(sample_count);
+            }
+
+            if(vignetteOn == 1){
+                //determine center position
+                vec2 position = (gl_FragCoord.xy / resolution.xy) - vec2(0.5);
+                
+                //determine the vector length of the center position
+                float len = length(position);
+                
+                //use smoothstep to create a smooth vignette
+                float vignette = smoothstep(RADIUS, RADIUS-SOFTNESS, len);
+                
+                //apply the vignette with 50% opacity
+                color.rgb = mix(color.rgb, color.rgb * vignette, 0.5);
+            }
+
+            fragColor = color;
+        }
+    </script>
+
+    <script type="text/javascript" src="vendor.bundle.js"></script>
+    <script type="text/javascript" src="main.bundle.js"></script>
+</body>
+
+</html>
