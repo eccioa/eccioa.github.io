@@ -485,10 +485,18 @@ footer ul li a:hover, footer ul li a:focus, footer ul li a:active, footer ul li 
   overflow: hidden;
 }
 
-.inner img {
+/* .inner img {
   transition: all 0.5s ease;
 }
 
 .inner:hover img{
   transform: scale(1.15);
 }
+
+.inner video {
+  transition: all 0.5s ease;
+}
+
+.inner:hover video{
+  transform: scale(1.15);
+} */
