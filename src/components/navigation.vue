@@ -106,6 +106,13 @@ export default {
   background-color: #4b6cac;
 }
 
+@media (max-width: 992px) {
+  #mainNav {
+    border-color: rgba(34, 34, 34, 0.1);
+    background-color: #4b6cac;
+  }
+}
+
 @media (min-width: 992px) {
   #mainNav {
     border-color: transparent;

@@ -67,6 +67,7 @@ header.masthead .device-container .screen img {
 
 @media (max-width: 992px){
   header.masthead {
+    min-height: 50vh;
     padding-top: 120px;
     padding-bottom: 30px;
     color: white;

@@ -13,7 +13,7 @@
             </div> -->
             <div class="row h-100">
                 <div class="col h-100">
-                    <img src="https://i.imgur.com/6y3G6mx.jpg" height="150" width="150" id="profile_picture">
+                    <img data-aos="flip-right" src="https://i.imgur.com/6y3G6mx.jpg" height="150" width="150" id="profile_picture">
                     <h3>Yu-Chih Hung</h3>
                     <p class="BS">B.S. student at NTHU CS</p>
                 </div>

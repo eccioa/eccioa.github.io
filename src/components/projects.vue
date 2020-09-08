@@ -11,7 +11,7 @@
                     <div class="container-fluid">
 
                         <div class="card-columns">
-                            <div class="card" style="opacity: 1; transform: scale(1);" v-for="project in allProjects" :key="project.title">
+                            <div class="card" data-aos="zoom-in-up" v-for="project in allProjects" :key="project.title">
                                 <div class="inner">
                                   <component :is="project.tag" :type="project.type" class="card-img-top" :src="project.image" alt="load image failed" loop="" muted="" autoplay="" oncanplay="this.muted=true"></component>
                                 </div>
@@ -158,6 +158,7 @@ section.features .feature-item i {
   margin-bottom: 15px;
   background: -webkit-gradient(linear, right top, left top, from(#7b4397), to(#dc2430));
   background: linear-gradient(to left, #7b4397, #dc2430);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
