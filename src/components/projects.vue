@@ -13,7 +13,7 @@
                         <div class="card-columns">
                             <div class="card" style="opacity: 1; transform: scale(1);" v-for="project in allProjects" :key="project.title">
                                 <div class="inner">
-                                  <component :is="project.tag" :type="project.type" class="card-img-top" :src="project.image" alt="load image failed" loop="" muted="" autoplay="autoplay"></component>
+                                  <component :is="project.tag" :type="project.type" class="card-img-top" :src="project.image" alt="load image failed" loop="" muted="" autoplay="" oncanplay="this.muted=true"></component>
                                 </div>
                                 <div class="card-body">
                                     <h3 class="card-title">{{project.title}}</h3>
@@ -71,27 +71,27 @@ export default {
         },
         {
           title: "More Than A Penguin",
-          tag: "video",
-          type: "video/mp4",
-          image: require('../assets/LWh090R.mp4'),
+          tag: "img",
+          type: "",
+          image: "https://i.imgur.com/LWh090R.gif",
           description: "A party game built with Unity, in which players can store power and dash to hit other penguins into the water. Won <strong>Best Game Design Award</strong> and <strong>Best Popularity Award</strong> in the 4th Innovation Game Design Contest.",
           link: "https://youtu.be/0UWYn7_W73g",
           date: "January, 2019"
         },
         {
           title: "Maple Story Web Game",
-          tag: "video",
-          type: "video/mp4",
-          image: require('../assets/phHtqhm.mp4'),
+          tag: "img",
+          type: "",
+          image: "https://i.imgur.com/phHtqhm.gif",
           description: "An RPG game built with phaser and firebase. I'm responsible for the art design and the combat system, which fuses special attacks from fighting games (perform different attacks with combination of button presses).",
           link: "https://ss-final-666.firebaseapp.com/",
           date: "June, 2018"
         },
         {
           title: "NS-SHAFT Web Game",
-          tag: "video",
-          type: "video/mp4",
-          image: require('../assets/QwE9EhZ.mp4'),
+          tag: "img",
+          type: "",
+          image: "https://i.imgur.com/QwE9EhZ.gif",
           description: "A web version NS-SHAFT. It's like a reproduce of the PC version.",
           link: "http://eccioa.gitlab.io/Assignment_02",
           date: "May, 2018"
