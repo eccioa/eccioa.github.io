@@ -15,14 +15,14 @@
                 <div class="col h-100">
                     <img data-aos="flip-right" src="https://i.imgur.com/6y3G6mx.jpg" height="150" width="150" id="profile_picture">
                     <h3>Yu-Chih Hung</h3>
-                    <p class="BS">B.S. student at NTHU CS</p>
+                    <!-- <p class="BS">B.S. student at NTHU CS</p> -->
                 </div>
                 <div class="col-lg-8 h-100">
                     <h2>About</h2>
                     <hr class="light"><br>
                     <div class="row h-100">
                         <div class="col-8 mx-auto my-auto">
-                            <p class="lead">Currently pursuing a B.S. degree in Computer Science at <a href="https://www.nthu.edu.tw/">National Tsing Hua University</a>. Enjoy programming, painting and playing games. Dream to sleep more.
+                            <p class="lead">Graduated with a B.S. degree in Computer Science at <a href="https://www.nthu.edu.tw/">National Tsing Hua University</a>. Enjoy programming, painting and playing games. Dream to sleep more.
                         </p></div>
                     </div>
                 </div>

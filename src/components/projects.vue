@@ -10,20 +10,31 @@
                 <div class="col my-auto">
                     <div class="container-fluid">
 
-                        <div class="card-columns">
-                            <div class="card" data-aos="zoom-in-up" v-for="project in allProjects" :key="project.title">
-                                <div class="inner">
-                                  <component :is="project.tag" :type="project.type" class="card-img-top" :src="project.image" alt="load image failed" loop="" muted="" autoplay="" oncanplay="this.muted=true"></component>
-                                </div>
-                                <div class="card-body">
-                                    <h3 class="card-title">{{project.title}}</h3>
-                                    <p class="card-text" v-html="project.description"></p>
-                                    <a :href="project.link" class="btn btn-secondary"><i class="fas fa-globe-asia"></i></a>
-            
-                                    <p class="card-text"><small class="text-muted">{{project.date}}</small></p>
+                        <!-- <div class="card-columns"> -->
+                            <div class="card mb-3" data-aos="zoom-in-up" v-for="(project, index) in allProjects" :key="project.title">
+                                <div class="row no-gutters" :class="{ reverse_row : index % 2 === 1 }">
+                                    <div class="inner col-md-5">
+                                        <component :is="project.tag" :type="project.type" class="card-img-top" :src="project.image" alt="load image failed" loop="" muted="" autoplay="" oncanplay="this.muted=true"></component>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <div class="card-body">
+                                            <h3 class="card-title">{{project.title}}</h3>
+
+                                            <p class="card-text">
+                                              <strong>Intro : </strong>{{project.description}}<br>
+                                              <strong>Responsible for : </strong>{{project.responsible}}<br>
+                                              <strong>Tech : </strong>{{project.teck}}
+                                            </p>
+
+                                            <div>
+                                                <a :href="project.link" class="btn btn-secondary"><i class="fas fa-globe-asia"></i></a>
+                                                <p class="card-text"><small class="text-muted">{{project.date}}</small></p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        <!-- </div> -->
 
 
                     </div>
@@ -48,6 +59,8 @@ export default {
           type: "",
           image: "https://img.itch.zone/aW1nLzQwMjAwMjcucG5n/315x250%23c/ZmGZ5z.png",
           description: "In Lost In City, you use the power of rewinding time to adventure in a post-apocalypse world.",
+          responsible: "Game design, level design, program, visual effects.",
+          teck: "Unity, Post Processing, Shader Graph, Unity's Scriptable Render Pipeline.",
           link: "https://eccioa.itch.io/lostincity",
           date: "August, 2020"
         },
@@ -57,6 +70,8 @@ export default {
           type: "",
           image: "https://img.itch.zone/aW1nLzM4NzIwMzgucG5n/original/sPlllL.png",
           description: "In Varda, your character attacks automatically with rhythm. Player can only control movement of the character.",
+          responsible: "Game design, program, visual effects.",
+          teck: "Unity, Post Processing.",
           link: "https://eccioa.itch.io/varda",
           date: "July, 2020"
         },
@@ -65,7 +80,9 @@ export default {
           tag: "img",
           type: "",
           image: "https://i.imgur.com/RhVAb4t.png",
-          description: "A 2D mobile game for android only. Touch the screen to control the ladle to throw pearls on everything.",
+          description: "A 2D mobile game for android only. Touch the screen to control the ladle to throw pearls on everything.(1-person project)",
+          responsible: "Everything.",
+          teck: "Unity, Unity Ads.",
           link: "https://play.google.com/store/apps/details?id=com.eccioa.ThePearlGame",
           date: "March, 2020"
         },
@@ -74,7 +91,9 @@ export default {
           tag: "img",
           type: "",
           image: "https://i.imgur.com/LWh090R.gif",
-          description: "A party game built with Unity, in which players can store power and dash to hit other penguins into the water. Won <strong>Best Game Design Award</strong> and <strong>Best Popularity Award</strong> in the 4th Innovation Game Design Contest.",
+          description: "A party game built with Unity, in which players can store power and dash to hit other penguins into the water. Won Best Game Design Award and Best Popularity Award in the 4th Innovation Game Design Contest.",
+          responsible: "Game design, visual design, modeling.",
+          teck: "Unity, Blender.",
           link: "https://youtu.be/0UWYn7_W73g",
           date: "January, 2019"
         },
@@ -84,6 +103,8 @@ export default {
           type: "",
           image: "https://i.imgur.com/phHtqhm.gif",
           description: "An RPG game built with phaser and firebase. I'm responsible for the art design and the combat system, which fuses special attacks from fighting games (perform different attacks with combination of button presses).",
+          responsible: "Game design, program, game art.",
+          teck: "Phaser.",
           link: "https://ss-final-666.firebaseapp.com/",
           date: "June, 2018"
         },
@@ -92,7 +113,9 @@ export default {
           tag: "img",
           type: "",
           image: "https://i.imgur.com/QwE9EhZ.gif",
-          description: "A web version NS-SHAFT. It's like a reproduce of the PC version.",
+          description: "A web version NS-SHAFT. It's like a reproduce of the PC version. (1-person project)",
+          responsible: "Everything.",
+          teck: "Phaser.",
           link: "http://eccioa.gitlab.io/Assignment_02",
           date: "May, 2018"
         },
@@ -101,7 +124,9 @@ export default {
           tag: "img",
           type: "",
           image: "https://i.imgur.com/Fw8kEGL.gif",
-          description: "A web painter with basic painting tools and a setting sidebar to customize the stroke. One can also paint on an uploaded image and download it after the work is done.",
+          description: "A web painter with basic painting tools and a setting sidebar to customize the stroke. One can also paint on an uploaded image and download it after the work is done. (1-person project)",
+          responsible: "Everything.",
+          teck: "HTML, CSS, JavaScript.",
           link: "https://eccioa.gitlab.io/AS_01_WebCanvas/",
           date: "March, 2018"
         },
@@ -113,6 +138,23 @@ export default {
 
 
 <style>
+
+.card-img-top {
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items:flex-start;
+  justify-content: space-between;
+}
+
+.reverse_row {
+  flex-direction: row-reverse;
+}
 
 section.features .section-heading {
   margin-bottom: 100px;
