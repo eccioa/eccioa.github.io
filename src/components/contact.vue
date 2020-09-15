@@ -3,12 +3,12 @@
         <div class="container">
             <ul class="list-inline list-social">
                 <li class="list-inline-item social-twitter">
-                    <a href="#" onclick="copy('eccioa@gmail.com')">
+                    <a href="#" @click="copy('eccioa@gmail.com')">
                         <i class="far fa-envelope"></i>
                     </a>
                 </li>
                 <li class="list-inline-item social-facebook">
-                    <a href="https://www.facebook.com/profile.php?id=100001037221656">
+                    <a href="https://www.facebook.com/profile.php?id=100001037221656" target="_blank">
                         <i class="fab fa-facebook-f"></i>
                     </a>
                 </li>
@@ -16,6 +16,20 @@
         </div>
     </section>
 </template>
+
+<script>
+export default {
+  methods: {
+    copy: function(newClip) {
+      navigator.clipboard.writeText(newClip).then(function() {
+        alert("Email copied to clipboard!");/* clipboard successfully set */
+      }, function() {
+        /* clipboard write failed */
+      });
+    }
+  }
+}
+</script>
 
 
 <style>
