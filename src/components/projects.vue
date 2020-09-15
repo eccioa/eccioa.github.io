@@ -27,7 +27,7 @@
                                             </p>
 
                                             <div>
-                                                <a :href="project.link" class="btn btn-secondary"><i class="fas fa-globe-asia"></i></a>
+                                                <a :href="project.link" class="btn btn-secondary" target="_blank"><i class="fas fa-globe-asia"></i></a>
                                                 <p class="card-text"><small class="text-muted">{{project.date}}</small></p>
                                             </div>
                                         </div>

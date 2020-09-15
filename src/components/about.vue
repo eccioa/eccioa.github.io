@@ -22,7 +22,7 @@
                     <hr class="light"><br>
                     <div class="row h-100">
                         <div class="col-8 mx-auto my-auto">
-                            <p class="lead">Graduated with a B.S. degree in Computer Science at <a href="https://www.nthu.edu.tw/">National Tsing Hua University</a>. Enjoy programming, painting and playing games. Dream to sleep more.
+                            <p class="lead">Graduated with a B.S. degree in Computer Science at <a href="https://www.nthu.edu.tw/" target="_blank">National Tsing Hua University</a>. Enjoy programming, painting and playing games. Dream to sleep more.
                         </p></div>
                     </div>
                 </div>
